@@ -5,4 +5,8 @@
 .vscode/ipch
 # Mijn eigen geheime bestanden
 include/secret.h
+<<<<<<< HEAD
 src/*.txt
+=======
+src/*.txt
+>>>>>>> d71d9d24ad788509182593c0a8688c2957dc9e6d
