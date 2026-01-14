@@ -17,6 +17,10 @@ String sunriseStr = "--:--";
 String sunsetStr = "--:--";
 String currentTimeStr = "--:--:--";
 String currentDateStr = "--. --:---:----";
+float TempC = 0.0;
+int fanDuty = 0;
+int rawValue = 0;
+int rpm = 0;
 
 // De "belofte" aan de compiler dat deze functie verderop staat:
 void drawDisplay(struct tm* timeInfo, time_t now);

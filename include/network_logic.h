@@ -9,7 +9,7 @@
 #include <Arduino.h>
 #include <ArduinoOTA.h>
 #include <wifi.h>
-#include <mdns.h>
+#include <ESPmDNS.h>
 
 // 2. Het u8g2 object bekend maken bij alle bestanden
 // Let op: type moet exact matchen met de constructor in main.cpp
@@ -20,6 +20,8 @@ extern String sunriseStr;
 extern String sunsetStr;
 extern String currentTimeStr;
 extern String currentDateStr;
+
+
 
 /**
  * Toont alleen netwerk informatie bij een "koude" start (stekker erin)
