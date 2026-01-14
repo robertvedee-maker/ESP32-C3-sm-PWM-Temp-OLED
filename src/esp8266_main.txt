@@ -35,7 +35,7 @@ void loop() {
     HTTPClient http;
 
     Serial.print("[HTTP] begin...\n");
-    if (http.begin(client, "http://api.openweathermap.org/data/2.5/forecast?q=Heelsum,NL&APPID=3def9d699ee21e02d6e2ae2a84cd1881&mode=json&units=metric&cnt=2")) {
+    if (http.begin(client, "http://api.openweathermap.org/data/2.5/forecast?q=xxx,xx&APPID=xxx&mode=json&units=metric&cnt=2")) {
 
       Serial.print("[HTTP] GET...\n");
       int httpCode = http.GET();
