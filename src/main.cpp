@@ -20,6 +20,8 @@ String currentTimeStr = "--:--:--";
 String currentDateStr = "--. --:---:----";
 String TempC = "0.0";
 float tempC = 0.0;
+float minTemp = 20.0;
+float maxTemp = 80.0;
 int fanDuty = 0;
 int rawValue = 0;
 int rpm = 0;
@@ -45,6 +47,8 @@ const float nominalResistance = 10000; // NTC weerstand bij 25 graden
 const float nominalTemperature = 25; // Nominale temp in Celsius
 const float bCoefficient = 3950; // Beta-waarde van de meeste 10k NTC's
 const float adcMax = 4095.0; // 12-bit ADC resolutie van de C3
+
+float smoothedTemp = 0.0; // De gefilterde temperatuur
 
 // PWM instellingen voor 4-pin ventilator
 const int pwmFreq = 25000; // 25 kHz (industriestandaard)
@@ -92,14 +96,14 @@ void setup()
 
     Serial.begin(115200);
 
-    // Wacht maximaal 5 seconden tot de seriële monitor is verbonden
-    // Dit voorkomt dat je data mist bij het opstarten
-    unsigned long startWait = millis();
-    while (!Serial && (millis() - startWait < 5000)) {
-        delay(10);
-    }
+    // // Wacht maximaal 5 seconden tot de seriële monitor is verbonden
+    // // Dit voorkomt dat je data mist bij het opstarten
+    // unsigned long startWait = millis();
+    // while (!Serial && (millis() - startWait < 5000)) {
+    //     delay(10);
+    // }
 
-    Serial.println("USB verbinding tot stand gebracht!");
+    // Serial.println("USB verbinding tot stand gebracht!");
 
     // Configureer PWM kanaal
     ledcSetup(pwmChannel, pwmFreq, pwmRes);
@@ -108,6 +112,10 @@ void setup()
     //  Sinds versie 3.x van de ESP32 Arduino Core is de manier waarop PWM (ledc) werkt veranderd:
     //  Oude methode: ledcSetup() en ledcAttachPin().
     //  Nieuwe methode (2025/2026): Gebruik direct ledcAttach(pin, freq, resolution) en daarna ledcWrite(pin, duty).
+    //  Voor compatibiliteit met oudere code gebruiken we hier de oude methode.
+    //  Raadpleeg de documentatie van de ESP32 Arduino Core voor meer details.
+    //  Zie: https://github.com/espressif/arduino-esp32/blob/master/docs/ledc.rst
+    //  Voor nu blijft de oude methode in gebruik voor bredere compatibiliteit.
 
     // Tachometer setup
     pinMode(fanTachoPin, INPUT_PULLUP); // Extra veiligheid naast externe pull-up
@@ -166,16 +174,16 @@ void loop()
 
     unsigned long currentMillis = millis();
 
-    // 2. Weer-update timer (elke 15 minuten = 900.000 ms)
-    static unsigned long lastNTC_Update = 0;
-    const unsigned long NTC_Interval = 900000;
+    // // 2. NTC-update timer (elke 15 minuten = 900.000 ms)
+    // static unsigned long lastNTC_Update = 0;
+    // const unsigned long NTC_Interval = 900000;
 
-    if (currentMillis - lastNTC_Update >= NTC_Interval || lastNTC_Update == 0) {
-        lastNTC_Update = currentMillis;
-        // Lees NTC en stuur fan aan
-        rawValue = analogRead(ntcPin);
-        tempC = calculateCelsius(rawValue);
-    }
+    // if (currentMillis - lastNTC_Update >= NTC_Interval || lastNTC_Update == 0) {
+    //     lastNTC_Update = currentMillis;
+    //     // Lees NTC en stuur fan aan
+    //     rawValue = analogRead(ntcPin);
+    //     tempC = calculateCelsius(rawValue);
+    // }
 
     // 3. Display en Tijd update timer (elke seconde = 1000 ms)
     static unsigned long lastDisplayUpdate = 0;
@@ -204,10 +212,22 @@ void loop()
     // timeClient.update(); // Update time from NTP (if needed)
     // unsigned long currentTime = timeClient.getEpochTime(); // Get current Unix time
 
-    // // Display current time (every second)
+    rawValue = analogRead(ntcPin);
+    float rawTemp = calculateCelsius(rawValue); // Lees de temperatuur van de NTC sensor
+
+    if (smoothedTemp == 0.0) {
+        smoothedTemp = rawTemp;
+    } else {
+        // Hoe hoger de 0.98, hoe trager/rustiger de reactie
+        smoothedTemp = (smoothedTemp * 0.98) + (rawTemp * 0.02);
+    }
+    tempC = smoothedTemp;
+    minTemp = 20; // Minimum temperatuur voor mapping
+    maxTemp = 80; // Maximum temperatuur voor mapping
 
     // Aansturing (ADC): Warmer = lagere ADC = hogere PWM
-    fanDuty = map(rawValue, 1800, 800, 0, 1023); // Pas deze waarden aan op jouw NTC en ventilator 2200 = koud, 1200 = warm
+    // fanDuty = map(rawValue, 1800, 800, 0, 1023); // Pas deze waarden aan op jouw NTC en ventilator 2200 = koud, 1200 = warm
+    fanDuty = map(smoothedTemp, minTemp, maxTemp, 0, 100);
     fanDuty = constrain(fanDuty, 0, 1023);
     ledcWrite(pwmChannel, fanDuty);
 
@@ -270,16 +290,16 @@ void drawDisplay(struct tm* timeInfo, time_t now)
     u8g2.print("%");
 
     u8g2.sendBuffer();
-    delay(200);
+    // delay(200);
 
-    // 3. Output naar Seriële Monitor
-    Serial.print("NTC: ");
-    Serial.print(rawValue);
-    Serial.print(" | PWM: ");
-    Serial.print((fanDuty / 1023.0) * 100);
-    Serial.print("% | Fan Snelheid: ");
-    Serial.print(rpm);
-    Serial.println(" RPM");
+    // // 3. Output naar Seriële Monitor
+    // Serial.print("NTC: ");
+    // Serial.print(rawValue);
+    // Serial.print(" | PWM: ");
+    // Serial.print((fanDuty / 1023.0) * 100);
+    // Serial.print("% | Fan Snelheid: ");
+    // Serial.print(rpm);
+    // Serial.println(" RPM");
 
     delay(2000); // Update elke 2 seconden
     u8g2.sendBuffer();

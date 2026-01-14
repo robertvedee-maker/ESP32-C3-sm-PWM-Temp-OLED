@@ -8,9 +8,9 @@
 #include "helpers.h" // Nodig voor u8g2 en uitlijning
 #include <Arduino.h>
 #include <ArduinoOTA.h>
-#include <wifi.h>
 #include <ESPmDNS.h>
 #include <esp_system.h>
+#include <wifi.h>
 
 // 2. Het u8g2 object bekend maken bij alle bestanden
 // Let op: type moet exact matchen met de constructor in main.cpp
@@ -21,8 +21,6 @@ extern String sunriseStr;
 extern String sunsetStr;
 extern String currentTimeStr;
 extern String currentDateStr;
-
-
 
 /**
  * Toont alleen netwerk informatie bij een "koude" start (stekker erin)
@@ -45,7 +43,7 @@ void toonNetwerkInfo()
         u8g2.setCursor(12, 35);
         u8g2.print("IP:   " + WiFi.localIP().toString());
         u8g2.setCursor(12, 48);
-        u8g2.print("mDNS: " + String(DEVICE_MDNS_NAME)/* + ".local"*/);
+        u8g2.print("mDNS: " + String(DEVICE_MDNS_NAME) /* + ".local"*/);
 
         u8g2.sendBuffer();
         delay(4000);
