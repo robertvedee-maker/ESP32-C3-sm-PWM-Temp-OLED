@@ -1,0 +1,87 @@
+/*
+#include <Arduino.h>
+#include <WiFi.h>
+// #include <ESP8266WiFiMulti.h>
+#include <HTTPClient.h>
+#include <WiFiClient.h>
+#include <ArduinoJson.h>
+
+
+WiFiMulti WiFiMulti;
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println();
+  Serial.println();
+  Serial.println();
+
+  for (uint8_t t = 4; t > 0; t--) {
+    Serial.printf("[SETUP] WAIT %d...\n", t);
+    Serial.flush();
+    delay(1000);
+  }
+
+  WiFi.mode(WIFI_STA);
+  WiFiMulti.addAP("DECODRAADLOOS_IoT", "H26871AP44");
+}
+
+void loop() {
+
+
+
+  // wait for WiFi connection
+  if ((WiFiMulti.run() == WL_CONNECTED)) {
+    WiFiClient client;
+    HTTPClient http;
+
+    Serial.print("[HTTP] begin...\n");
+    if (http.begin(client, "http://api.openweathermap.org/data/2.5/forecast?q=Heelsum,NL&APPID=3def9d699ee21e02d6e2ae2a84cd1881&mode=json&units=metric&cnt=2")) {
+
+      Serial.print("[HTTP] GET...\n");
+      int httpCode = http.GET();
+
+      if (httpCode > 0) {
+        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+
+        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+          String payload = http.getString();
+          Serial.println("Response:");
+          Serial.println(payload);
+
+          // Parse JSON
+          DynamicJsonDocument doc(2000);
+          DeserializationError error = deserializeJson(doc, payload);
+
+          if (error) {
+            Serial.print("Error parsing JSON: ");
+            Serial.println(error.c_str());
+          } else {
+            // Access individual items
+            Serial.println("Parsed Data:");
+            Serial.println("City: " + doc["city"]["name"].as<String>());
+            Serial.println("Temperature 1: " + String(doc["list"][0]["main"]["temp"].as<float>()) + "°C");
+            Serial.println("Feels like: " + String(doc["list"][0]["main"]["feels_like"].as<float>()) + "°C");
+            Serial.println("Humidity: " + String(doc["list"][0]["main"]["humidity"].as<float>()) + "% relative");
+/*
+            // Serial.println("Weather Description 1: " + doc["list"][0]["weather"][0]["description"].as<String>());
+
+            // Serial.println("Temperature 2: " + String(doc["list"][1]["main"]["temp"].as<float>()));
+            // Serial.println("Weather ID 1: " + String(doc["list"][0]["weather"][0]["id"].as<int>()));
+            // Serial.println("Weather ID 2: " + String(doc["list"][1]["weather"][0]["id"].as<int>()));
+            // Serial.println("Weather Description 2: " + doc["list"][1]["weather"][0]["description"].as<String>());
+*/  /*
+          }
+        }
+      } else {
+        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      }
+
+      http.end();
+    } else {
+      Serial.println("[HTTP] Unable to connect");
+    }
+  }
+
+  delay(600000);
+}
+*/
