@@ -10,6 +10,7 @@
 #include <ArduinoOTA.h>
 #include <wifi.h>
 #include <ESPmDNS.h>
+#include <esp_system.h>
 
 // 2. Het u8g2 object bekend maken bij alle bestanden
 // Let op: type moet exact matchen met de constructor in main.cpp
@@ -30,10 +31,10 @@ extern String currentDateStr;
 // De 'toonNetwerkInfo' functie in network_logic.h
 void toonNetwerkInfo()
 {
-    struct rst_info* rtc_info = system_get_rst_info();
+    esp_reset_reason_t reset_reason = esp_reset_reason();
 
     // We gebruiken de namen die de compiler zojuist zelf voorstelde:
-    if (rtc_info->reason == REASON_DEFAULT_RST || rtc_info->reason == REASON_EXT_SYS_RST) {
+    if (reset_reason == ESP_RST_POWERON || reset_reason == ESP_RST_SW) {
         // ... je code voor het informatiescherm ...
         u8g2.clearBuffer();
         u8g2.drawRFrame(0, 0, LCDWidth, LCDHeight, 5);

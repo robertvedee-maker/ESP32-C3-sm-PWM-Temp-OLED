@@ -9,18 +9,22 @@
 #include "network_logic.h" // Volgorde is hier erg belangrijk. niet aanpassen!
 #include <math.h> // Nodig voor log() berekening
 
-
 // De U8G2 die je hier aanpast ook in [helpers.h] [network_logic.h], [daynight.cpp] aanpassen!
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+
+bool eersteStart = true; // Zorgt ervoor dat info éénmalig getoond wordt
 
 String sunriseStr = "--:--";
 String sunsetStr = "--:--";
 String currentTimeStr = "--:--:--";
 String currentDateStr = "--. --:---:----";
-float TempC = 0.0;
+String TempC = "0.0";
+float tempC = 0.0;
 int fanDuty = 0;
 int rawValue = 0;
 int rpm = 0;
+int rpm2 = 0;
+int rpm3 = 0;
 
 // De "belofte" aan de compiler dat deze functie verderop staat:
 void drawDisplay(struct tm* timeInfo, time_t now);
@@ -32,6 +36,8 @@ const unsigned long brightnessInterval = 60000; // 1 minuut
 const int ntcPin = 1; // GPIO1 (A1) voor analoge meting
 const int fanPwmPin = 10; // GPIO10 voor PWM output naar ventilator
 const int fanTachoPin = 2; // GPIO2 voor Tachometer (met 10k pull-up!)
+const int fanTachoPin2 = 3; // GPIO3 voor Tachometer (met 10k pull-up!)
+const int fanTachoPin3 = 4; // GPIO4 voor Tachometer (met 10k pull-up!)
 
 // --- NTC & DIVIDER PARAMETERS ---
 const float seriesResistor = 10000; // Vaste weerstand van 10k
@@ -47,11 +53,15 @@ const int pwmRes = 10; // 10-bit resolutie (0-1023)
 
 // Tachometer variabelen
 volatile int pulseCount = 0;
+volatile int pulseCount2 = 0;
+volatile int pulseCount3 = 0;
 unsigned long lastMillis = 0;
 int currentRPM = 0;
 
 // Interrupt Service Routine (moet in RAM voor snelheid)
 void IRAM_ATTR countPulses() { pulseCount++; }
+void IRAM_ATTR countPulses2() { pulseCount2++; }
+void IRAM_ATTR countPulses3() { pulseCount3++; }
 
 // Functie om ADC waarde naar Celsius om te rekenen
 float calculateCelsius(int rawADC)
@@ -77,6 +87,9 @@ float calculateCelsius(int rawADC)
  */
 void setup()
 {
+    // Start met een veilige lage snelheid (ca. 10%)
+    ledcWrite(pwmChannel, 100);
+
     Serial.begin(115200);
 
     // Wacht maximaal 5 seconden tot de seriële monitor is verbonden
@@ -92,12 +105,19 @@ void setup()
     ledcSetup(pwmChannel, pwmFreq, pwmRes);
     ledcAttachPin(fanPwmPin, pwmChannel);
 
-    // Start met een veilige lage snelheid (ca. 25%)
-    ledcWrite(pwmChannel, 255);
+    //  Sinds versie 3.x van de ESP32 Arduino Core is de manier waarop PWM (ledc) werkt veranderd:
+    //  Oude methode: ledcSetup() en ledcAttachPin().
+    //  Nieuwe methode (2025/2026): Gebruik direct ledcAttach(pin, freq, resolution) en daarna ledcWrite(pin, duty).
 
     // Tachometer setup
     pinMode(fanTachoPin, INPUT_PULLUP); // Extra veiligheid naast externe pull-up
     attachInterrupt(digitalPinToInterrupt(fanTachoPin), countPulses, FALLING);
+
+    pinMode(fanTachoPin2, INPUT_PULLUP); // Extra veiligheid naast externe pull-up
+    attachInterrupt(digitalPinToInterrupt(fanTachoPin2), countPulses2, FALLING);
+
+    pinMode(fanTachoPin3, INPUT_PULLUP); // Extra veiligheid naast externe pull-up
+    attachInterrupt(digitalPinToInterrupt(fanTachoPin3), countPulses3, FALLING);
 
     // 1. Hardware basis
     Serial.begin(115200);
@@ -122,6 +142,10 @@ void setup()
     // Initialiseer eerste waarden
     manageBrightness();
 
+    // 1. Lees NTC en stuur fan aan
+    rawValue = analogRead(ntcPin);
+    tempC = calculateCelsius(rawValue);
+
     // Succes schermpje (optioneel)
     const char* Msg = "Systeem Online";
     u8g2.clearBuffer();
@@ -139,13 +163,19 @@ void loop()
 {
     // 1. Altijd als eerste: Onderhoud voor OTA en Netwerk
     ArduinoOTA.handle();
-    MDNS.update();
 
     unsigned long currentMillis = millis();
 
     // 2. Weer-update timer (elke 15 minuten = 900.000 ms)
-    static unsigned long lastWeatherUpdate = 0;
-    const unsigned long weatherInterval = 900000;
+    static unsigned long lastNTC_Update = 0;
+    const unsigned long NTC_Interval = 900000;
+
+    if (currentMillis - lastNTC_Update >= NTC_Interval || lastNTC_Update == 0) {
+        lastNTC_Update = currentMillis;
+        // Lees NTC en stuur fan aan
+        rawValue = analogRead(ntcPin);
+        tempC = calculateCelsius(rawValue);
+    }
 
     // 3. Display en Tijd update timer (elke seconde = 1000 ms)
     static unsigned long lastDisplayUpdate = 0;
@@ -176,41 +206,23 @@ void loop()
 
     // // Display current time (every second)
 
-    // // 1. Lees NTC en stuur fan aan
-    // int rawADC = analogRead(ntcPin);
-    // float tempC = calculateCelsius(rawADC);
+    // Aansturing (ADC): Warmer = lagere ADC = hogere PWM
+    fanDuty = map(rawValue, 1800, 800, 0, 1023); // Pas deze waarden aan op jouw NTC en ventilator 2200 = koud, 1200 = warm
+    fanDuty = constrain(fanDuty, 0, 1023);
+    ledcWrite(pwmChannel, fanDuty);
 
-    // // Aansturing (ADC): Warmer = lagere ADC = hogere PWM
-    // int fanDuty = map(rawADC, 2200, 1200, 0, 1023);
-    // fanDuty = constrain(fanDuty, 0, 1023);
-    // ledcWrite(pwmChannel, fanDuty);
-
-    // // RPM berekening
-    // if (millis() - lastMillis >= 1000) {
-    //     noInterrupts();
-    //     currentRPM = (pulseCount / 2.0) * 60.0;
-    //     pulseCount = 0;
-    //     interrupts();
-    //     lastMillis = millis();
-    // }
-
-
-
-    // u8g2.firstPage();
-    // do {
-    //     u8g2.setCursor(0, 20);
-    //     u8g2.print("Time:  " + timeClient.getFormattedTime()); // HH:MM:SS
-
-    // } while ((u8g2.nextPage()));
-
-    // // Check if it's time to update other data (like OMW)
-    // if (millis() - lastUpdateTime >= updateInterval) {
-    //     Serial.println("--- 10 Minutes Passed ---");
-    //     // Call your function to fetch/update OMW data here
-    //     // updateWeatherData(); // Example function
-    //     // get_weahter();
-    //     lastUpdateTime = millis(); // Reset timer
-    // }
+    // RPM berekening
+    if (millis() - lastMillis >= 1000) {
+        noInterrupts();
+        rpm = (pulseCount / 2.0) * 60.0;
+        rpm2 = (pulseCount2 / 2.0) * 60.0;
+        rpm3 = (pulseCount3 / 2.0) * 60.0;
+        pulseCount = 0;
+        pulseCount2 = 0;
+        pulseCount3 = 0;
+        interrupts();
+        lastMillis = millis();
+    }
 }
 
 void drawDisplay(struct tm* timeInfo, time_t now)
@@ -229,7 +241,7 @@ void drawDisplay(struct tm* timeInfo, time_t now)
 
     // Header
     u8g2.setFont(u8g2_font_6x12_tr);
-    u8g2.drawStr(28, 10, "RADIATOR MONITOR");
+    u8g2.drawStr(32, 10, "RADIATOR MONITOR");
     u8g2.drawLine(0, 13, 128, 13);
 
     // Grote Temperatuur Weergave
@@ -241,9 +253,11 @@ void drawDisplay(struct tm* timeInfo, time_t now)
     // RPM Rechtsboven
     u8g2.setFont(u8g2_font_6x10_tr);
     u8g2.setCursor(80, 28);
-    u8g2.print(currentRPM);
+    u8g2.print(rpm);
     u8g2.setCursor(80, 40);
-    u8g2.print("RPM");
+    u8g2.print(rpm2);
+    u8g2.setCursor(80, 52);
+    u8g2.print(rpm3);
 
     // PWM Balk onderin
     int pwmPercent = map(fanDuty, 0, 1023, 0, 100);

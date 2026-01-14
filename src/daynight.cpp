@@ -45,8 +45,8 @@ void manageBrightness()
 
     // Pas het contrast aan op basis van de zon
     if (currentHour > sunrise && currentHour < sunset) {
-        u8g2.setContrast(200); // Overdag fel
+        u8g2.setContrast(100); // Overdag fel
     } else {
-        u8g2.setContrast(10); // 's Nachts gedimd
+        u8g2.setContrast(5); // 's Nachts gedimd
     }
 }

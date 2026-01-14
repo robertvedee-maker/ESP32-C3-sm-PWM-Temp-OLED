@@ -10,8 +10,8 @@
 #include <time.h>
 
 // 1. Hardware definities (Centraal op één plek!)
-#define I2C_SDA 0
-#define I2C_SCL 2
+#define I2C_SDA 5
+#define I2C_SCL 6
 
 // 2. Het u8g2 object bekend maken bij alle bestanden
 // Let op: type moet exact matchen met de constructor in main.cpp
