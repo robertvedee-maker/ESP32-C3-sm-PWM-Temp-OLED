@@ -10,7 +10,8 @@
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 #include <esp_system.h>
-#include <wifi.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
 
 // 2. Het u8g2 object bekend maken bij alle bestanden
 // Let op: type moet exact matchen met de constructor in main.cpp
@@ -21,6 +22,10 @@ extern String sunriseStr;
 extern String sunsetStr;
 extern String currentTimeStr;
 extern String currentDateStr;
+extern bool eersteStart;
+extern unsigned long lastBrightnessCheck;
+extern const unsigned long brightnessInterval;
+
 
 /**
  * Toont alleen netwerk informatie bij een "koude" start (stekker erin)
@@ -30,6 +35,7 @@ extern String currentDateStr;
 void toonNetwerkInfo()
 {
     esp_reset_reason_t reset_reason = esp_reset_reason();
+    // Controleer: Is dit een koude start (Power On) of handmatige Reset knop?
 
     // We gebruiken de namen die de compiler zojuist zelf voorstelde:
     if (reset_reason == ESP_RST_POWERON || reset_reason == ESP_RST_SW) {
@@ -48,6 +54,9 @@ void toonNetwerkInfo()
         u8g2.sendBuffer();
         delay(4000);
     }
+
+    // Zet de vlag op false zodat de loop() weet dat we klaar zijn
+    eersteStart = false;
 }
 
 /**
@@ -55,7 +64,10 @@ void toonNetwerkInfo()
  */
 void setupWiFi(const char* ssid, const char* password)
 {
+    WiFi.setSleep(false); // Voorkom dat WiFi in slaap valt
+    
     WiFi.begin(ssid, password);
+    esp_wifi_set_max_tx_power(34); 
 
     unsigned long startAttemptTime = millis();
     u8g2.setFont(u8g2_font_helvR08_tf);
@@ -78,6 +90,9 @@ void setupOTA(const char* hostname)
     ArduinoOTA.setHostname(hostname);
 
     ArduinoOTA.onStart([]() {
+        ; // Veiligheidshalve alle interrupts uitzetten om conflicten tijdens OTA te voorkomen bij het updaten.
+        // detachInterrupt(digitalPinToInterrupt()); 
+  
         const char* Msg = "OTA Update Start...";
         u8g2.clearBuffer();
         u8g2.setFont(u8g2_font_helvR08_tf);
